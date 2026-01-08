@@ -3,39 +3,50 @@
   const TAG = "[NoCopy]";
   console.log(TAG, "running on", location.href);
 
-  // 1) Block keyboard + native copy/cut/paste events
+  // --- alert throttle ---
+  let lastAlert = 0;
+  function notify() {
+    const now = Date.now();
+    if (now - lastAlert > 1500) {
+      lastAlert = now;
+      window.alert("Copy and paste is disabled on this site.");
+    }
+  }
+
+  // --- generic blocker ---
   const blockEvt = (e) => {
     try { e.clipboardData?.setData("text/plain", ""); } catch {}
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation?.();
+    notify();
     return false;
   };
 
+  // 1) Native clipboard events
   document.addEventListener("copy", blockEvt, true);
   document.addEventListener("cut", blockEvt, true);
   document.addEventListener("paste", blockEvt, true);
 
+  // 2) Hotkeys
   document.addEventListener("keydown", (e) => {
     const k = (e.key || "").toLowerCase();
     const mod = e.ctrlKey || e.metaKey;
     if (mod && (k === "c" || k === "v" || k === "x")) blockEvt(e);
   }, true);
 
-  // 2) Patch Clipboard API (what "Copy code" buttons use)
+  // 3) Patch Clipboard API (Copy buttons often use this)
   if (navigator.clipboard?.writeText) {
     const orig = navigator.clipboard.writeText.bind(navigator.clipboard);
-    navigator.clipboard.writeText = async (text) => {
+    navigator.clipboard.writeText = async () => {
       console.log(TAG, "blocked clipboard.writeText");
-      // Pretend success, but write nothing
-      return Promise.resolve();
+      notify();
+      return Promise.resolve(); // pretend success
     };
-    // (keep orig if you want a toggle later)
     navigator.clipboard.__origWriteText = orig;
   }
 
-  // 3) Specifically neutralize the "Copy code" button clicks on ChatGPT
-  // ChatGPT is a SPA, so watch for new buttons appearing.
+  // 4) Disable "Copy code" button (ChatGPT UI)
   const isCopyButton = (el) => {
     if (!el) return false;
     const txt = (el.innerText || el.textContent || "").trim().toLowerCase();
@@ -47,23 +58,21 @@
     if (btn.dataset.nocopyDone) return;
     btn.dataset.nocopyDone = "1";
 
-    // Prevent click from reaching their handler
     btn.addEventListener("click", (e) => {
       console.log(TAG, "blocked Copy code button");
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation?.();
+      notify();
       return false;
     }, true);
 
-    // Optional: visually indicate disabled
+    // visual hint
     btn.style.opacity = "0.4";
-    btn.style.pointerEvents = "auto"; // keep events so our blocker catches clicks
-    btn.title = "Copy blocked by NoCopy extension";
+    btn.title = "Copy disabled";
   };
 
   const scan = () => {
-    // Scan buttons/role=button elements
     document.querySelectorAll("button,[role='button']").forEach((el) => {
       if (isCopyButton(el)) disable(el);
     });
