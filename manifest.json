@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "No Copy From LLMs",
+  "name": "No More Vibecoding!",
   "version": "1.1.0",
-  "description": "Blocks copy/paste on popular LLM chat sites.",
+  "description": "Blocks copy/paste on popular LLM chat sites so that you stop vibecoding.",
   "content_scripts": [
     {
       "matches": [
